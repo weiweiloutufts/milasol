@@ -42,7 +42,7 @@ pip install -r src/requirements.txt
 ```
 Note: A GPU with CUDA support is strongly recommended.
 
-🏋️ Training
+## Training
 Example prediction command:
 
 ```bash
