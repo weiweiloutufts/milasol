@@ -74,4 +74,4 @@ python -m milasol.models.train \
 --pos_rate $pos_rate \
 ```
 Acknowledgements
-Developed in collaboration with the Cowen Lab (Tufts University)
+This work was developed within the Cowen Lab at Tufts University.
