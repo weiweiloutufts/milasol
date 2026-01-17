@@ -89,19 +89,6 @@ def _latent_distance(initial_latent: torch.Tensor, proposal_latent: torch.Tensor
     return float(torch.norm(diff.flatten(), p=2).item())
 
 
-# def _latent_to_str(latent: torch.Tensor) -> str:
-#     """
-#     Serialize a latent tensor to a single-line string for CSV logging.
-#     Keeps the full precision on CPU to allow exact reconstruction later.
-#     """
-#     arr = latent.detach().cpu().numpy().reshape(-1)
-#     return np.array2string(
-#         arr,
-#         separator=" ",
-#         max_line_width=1_000_000,
-#         formatter={"float_kind": lambda x: f"{x:.8g}"},
-#     ).replace("\n", " ")
-
 
 def generate_with_raygun(
     seq_list,

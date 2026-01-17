@@ -34,6 +34,3 @@ export PYTHONUNBUFFERED=
   --cache_dir /cluster/tufts/cowenlab/wlou01/modelcache/ \
   --device cuda:0
   
- 
-#python test.py
-#--modelname checkpoints/best_model_v2.pth \
