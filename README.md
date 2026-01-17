@@ -38,6 +38,15 @@ python -m milasol.models.predict_new \
   --prot_file /datasets/deepsol_data/test_src_prot_embeddings.csv \
   --ray_file /datasets/deepsol_data/test_src_raygun_embeddings_v2.csv \
 ```
+or 
+
+```bash
+python -m milasol.models.predict_new \
+  --modelname checkpoints/daps_train0.3_0.1_0.1_0.0_64_2.5_1.0.pth \
+  --source_data data/test_src.txt \
+  --out_dir outputs/ \
+  --cache_dir modelcache/ \
+```
 Example training command:
 ```bash
 python -m milasol.models.train \

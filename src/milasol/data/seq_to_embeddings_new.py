@@ -152,7 +152,7 @@ def _esm_perres_and_pooled(
     data = [(f"seq_{i}", s) for i, s in enumerate(seqs)]
 
     # ---- length guard (ESM2 limit) ----
-    MAX_LEN = 1022
+    MAX_LEN = 2000
     too_long = [(name, len(seq)) for name, seq in data if len(seq) > MAX_LEN]
     if too_long:
         # log a few examples
