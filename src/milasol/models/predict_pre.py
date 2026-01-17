@@ -8,11 +8,10 @@ from milasol.data.datasets import ProteinDataset, collate_fn
 from milasol.models.base import ProteinClassifier
 
 
-
 @torch.no_grad()
 def get_pred(model, loader, device):
     model.eval()
-    all_probs, all_preds, all_index,all_labels = [], [], [],[]
+    all_probs, all_preds, all_index, all_labels = [], [], [], []
 
     for seqs, esm_embs, prot_embs, raygun_embs, feats, labels, idx in loader:
         # feats/labels may be sentinel tensors; be defensive
@@ -26,7 +25,6 @@ def get_pred(model, loader, device):
         probs = torch.sigmoid(logits).view(-1)  # (B,)
         preds = (probs > 0.5).to(torch.int64).view(-1)
 
-     
         all_probs.extend(probs.cpu().tolist())
         all_preds.extend(preds.cpu().tolist())
 
@@ -55,7 +53,7 @@ def _normalize_device(dev: Union[str, torch.device, None]) -> torch.device:
 
 
 def init_model(modelname: str, device: torch.device | str):
-   
+
     #  instantiate the architecture (keep these hyperparams in sync with training)
     model = ProteinClassifier(
         vocab_size=22,
@@ -89,13 +87,13 @@ def prediction(
     print(f"[INFO] Using device: {device}")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     source_data_txt = Path(source_dir) / "test_src.txt"
     esm_csv = Path(source_dir) / "test_src_esm_embeddings.csv"
     prott5_csv = Path(source_dir) / "test_src_prot_embeddings.csv"
     ray_csv = Path(source_dir) / "test_src_raygun_embeddings.csv"
     label_file = Path(source_dir) / "test_tgt.txt"
-    
+
     test_data = ProteinDataset(
         source_data_txt,
         esm_csv,
@@ -105,59 +103,63 @@ def prediction(
         label_file=label_file,
         augment=False,
     )
-    
 
-    test_loader = DataLoader(test_data, batch_size=32,shuffle=False, drop_last=False,collate_fn=collate_fn)
+    test_loader = DataLoader(
+        test_data, batch_size=32, shuffle=False, drop_last=False, collate_fn=collate_fn
+    )
 
-    model=init_model(model_name, device)
+    model = init_model(model_name, device)
 
     # predict
-    all_probs, all_preds, all_labels= get_pred(model, test_loader, device)
-
+    all_probs, all_preds, all_labels = get_pred(model, test_loader, device)
 
     # save alongside the source CSV
     # read one sequence per line, keep "NA" as literal, strip blanks
-    seq_df = pd.read_csv(source_data_txt, header=None, names=["seq"], dtype=str, keep_default_na=False)
+    seq_df = pd.read_csv(
+        source_data_txt, header=None, names=["seq"], dtype=str, keep_default_na=False
+    )
     seq_df["seq"] = seq_df["seq"].str.strip()
-    
 
     # sanity checks
 
     out_csv = str(Path(out_dir) / "test_predictions.csv")
-    pd.DataFrame({
-        "seq": seq_df["seq"],         
-        "predicted_label": all_preds,
-        "predicted_prob": all_probs,
-        "true_label": all_labels
-    }).to_csv(out_csv, index=False)
+    pd.DataFrame(
+        {
+            "seq": seq_df["seq"],
+            "predicted_label": all_preds,
+            "predicted_prob": all_probs,
+            "true_label": all_labels,
+        }
+    ).to_csv(out_csv, index=False)
 
     print(f"[INFO] Predictions saved to {out_csv}")
+
 
 def main():
     ap = argparse.ArgumentParser(description="Run protein solubility prediction")
     ap.add_argument("--modelname", required=True, help="Checkpoint file")
-    ap.add_argument(
-        "--source_dir", required=True, help="source file directory"
-    )
+    ap.add_argument("--source_dir", required=True, help="source file directory")
 
     ap.add_argument("--out_dir", default="outputs/")
     ap.add_argument("--cache_dir", default=None)
-    ap.add_argument("--device", default=None, help="Device for inference, e.g., 'cuda:0' or 'cpu'")
+    ap.add_argument(
+        "--device", default=None, help="Device for inference, e.g., 'cuda:0' or 'cpu'"
+    )
     args = ap.parse_args()
-    
+
     print("[INFO] predict_pre starting...", flush=True)
     print(f"[INFO] args: {args}", flush=True)
 
     prediction(
         args.modelname,
-        source_dir=args.source_dir, 
-        device=args.device, 
+        source_dir=args.source_dir,
+        device=args.device,
         out_dir=args.out_dir,
         cache_dir=args.cache_dir,
     )
-    
+
     print("[INFO] predict_pre done.", flush=True)
-    
-    
+
+
 if __name__ == "__main__":
     main()

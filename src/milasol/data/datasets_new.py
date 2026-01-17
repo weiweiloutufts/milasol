@@ -66,15 +66,18 @@ def _load_table_as_tensor(source, *, dtype, header=None, name="input"):
         return torch.tensor(source.values, dtype=dtype)
     if _is_pathlike(source):
         frame = pd.read_csv(source, header=header)
-        
+
         return torch.tensor(frame.values, dtype=dtype)
     raise TypeError(
         f"{name} must be a path, torch.Tensor, pandas DataFrame, or a sequence of values."
     )
 
+
 def _prepare_sequence_source(source):
     if source is None:
-        raise ValueError("A sequence source must be provided as a path or tensor-like input.")
+        raise ValueError(
+            "A sequence source must be provided as a path or tensor-like input."
+        )
     if isinstance(source, torch.Tensor):
         tensor = source.detach().clone().to(dtype=torch.long)
         if tensor.dim() == 1:
@@ -158,34 +161,26 @@ class ProteinDataset(torch.utils.data.Dataset):
         )
         if self.esm_embeddings.size(0) != self._num_samples:
             print(self.esm_embeddings.size(0), self._num_samples)
-            raise ValueError(
-                "Mismatch between ESM embeddings  and sequence inputs."
-            )
+            raise ValueError("Mismatch between ESM embeddings  and sequence inputs.")
 
         self.prot_embeddings = _load_table_as_tensor(
             prot_file, dtype=torch.float, header=0, name="prot_file"
         )
         if self.prot_embeddings.size(0) != self._num_samples:
-            raise ValueError(
-                "Mismatch between Prot embeddings and sequence inputs."
-            )
+            raise ValueError("Mismatch between Prot embeddings and sequence inputs.")
 
         self.raygun_embeddings = _load_table_as_tensor(
-            raygun_file, dtype=torch.float, header=0,name="raygun_file"
+            raygun_file, dtype=torch.float, header=0, name="raygun_file"
         )
         if self.raygun_embeddings.size(0) != self._num_samples:
-            raise ValueError(
-                "Mismatch between RayGun embeddings and sequence inputs."
-            )
+            raise ValueError("Mismatch between RayGun embeddings and sequence inputs.")
 
         if feats_file is not None:
             self.solu_feats = _load_table_as_tensor(
                 feats_file, dtype=torch.float, name="feats_file"
             )
             if self.solu_feats.size(0) != self._num_samples:
-                raise ValueError(
-                    "Mismatch between Solu features and other inputs."
-                )
+                raise ValueError("Mismatch between Solu features and other inputs.")
         else:
             self.solu_feats = None
 
@@ -229,7 +224,7 @@ class ProteinDataset(torch.utils.data.Dataset):
                 [aa_vocab.get(aa, 21) for aa in seq], dtype=torch.long
             )
         else:
-          
+
             base_tensor = self.sequence_tensors[idx]
             sequence_tensor = base_tensor.detach().clone().to(dtype=torch.long)
 

@@ -16,17 +16,18 @@ from milasol.data.seq_to_embeddings_new import transfer_to_three_embedding_csvs
 from milasol.data.seq_to_embeddings_new import EmbeddingArtifacts
 
 
-
 @torch.no_grad()
 def get_pred(model: torch.nn.Module, loader: DataLoader, device: torch.device):
     model.eval()
     all_probs, all_preds, all_labels = [], [], []
-    
+
     t0 = time.time()
     n_batches = len(loader) if hasattr(loader, "__len__") else None
     n_seen = 0
     log_every = 50
-    for step, (seqs, esm_embs, prot_embs, raygun_embs, feats, labels, _) in enumerate(loader, start=1):
+    for step, (seqs, esm_embs, prot_embs, raygun_embs, feats, labels, _) in enumerate(
+        loader, start=1
+    ):
         # move to device
         seqs = seqs.to(device)
         esm_embs = esm_embs.to(device)
@@ -37,7 +38,7 @@ def get_pred(model: torch.nn.Module, loader: DataLoader, device: torch.device):
         logits, _, _, _ = model(seqs, esm_embs, prot_embs, raygun_embs)
         probs = torch.sigmoid(logits).view(-1)
         preds = (probs > 0.5).to(torch.int64).view(-1)
-        
+
         bs = int(probs.numel())
         n_seen += bs
 
@@ -49,16 +50,21 @@ def get_pred(model: torch.nn.Module, loader: DataLoader, device: torch.device):
             all_labels.extend(flat_labels)
         else:
             all_labels.extend([None] * probs.numel())
-            
-      
+
         # processing record
         if log_every > 0 and (step % log_every == 0 or step == 1):
             dt = time.time() - t0
             rate = n_seen / max(dt, 1e-9)
             batch_info = f"{step}/{n_batches}" if n_batches is not None else str(step)
-            print(f"[get_pred] {batch_info} batches | seen={n_seen} | rate={rate:.1f} seqs/s", flush=True)
+            print(
+                f"[get_pred] {batch_info} batches | seen={n_seen} | rate={rate:.1f} seqs/s",
+                flush=True,
+            )
 
-    print(f"[get_pred] done | total_seen={n_seen} | elapsed={time.time()-t0:.2f}s", flush=True)
+    print(
+        f"[get_pred] done | total_seen={n_seen} | elapsed={time.time()-t0:.2f}s",
+        flush=True,
+    )
     return all_probs, all_preds, all_labels
 
 
@@ -85,7 +91,7 @@ def init_model(modelname: str, device: Union[str, torch.device]):
         latent_dim=64,
     ).to(device)
 
-    state_dict = torch.load(modelname, map_location=device,weights_only=True)
+    state_dict = torch.load(modelname, map_location=device, weights_only=True)
     model.load_state_dict(state_dict)
     model.eval()
     return model
@@ -136,9 +142,13 @@ def prediction(
                 "write_to_disk is only supported when generating embeddings from raw sequences."
             )
 
-        seq_input = precomputed_inputs.get("sequence") or precomputed_inputs.get("sequence_file")
+        seq_input = precomputed_inputs.get("sequence") or precomputed_inputs.get(
+            "sequence_file"
+        )
         esm_input = precomputed_inputs.get("esm") or precomputed_inputs.get("esm_file")
-        prot_input = precomputed_inputs.get("prot") or precomputed_inputs.get("prot_file")
+        prot_input = precomputed_inputs.get("prot") or precomputed_inputs.get(
+            "prot_file"
+        )
         ray_input = precomputed_inputs.get("ray") or precomputed_inputs.get("ray_file")
 
         missing = [
@@ -227,19 +237,21 @@ def main():
         default=None,
         help="Optional label file or tensor source for evaluation mode",
     )
-    ap.add_argument("--sequence_file", default=None, help="Precomputed sequence file (txt/csv)")
+    ap.add_argument(
+        "--sequence_file", default=None, help="Precomputed sequence file (txt/csv)"
+    )
     ap.add_argument("--esm_file", default=None, help="Precomputed ESM embedding file")
-    ap.add_argument("--prot_file", default=None, help="Precomputed ProtT5 embedding file")
-    ap.add_argument("--ray_file", default=None, help="Precomputed RayGun embedding file")
+    ap.add_argument(
+        "--prot_file", default=None, help="Precomputed ProtT5 embedding file"
+    )
+    ap.add_argument(
+        "--ray_file", default=None, help="Precomputed RayGun embedding file"
+    )
     args = ap.parse_args()
 
     source = None
     if args.source_data:
-        source = (
-            args.source_data[0]
-            if len(args.source_data) == 1
-            else args.source_data
-        )
+        source = args.source_data[0] if len(args.source_data) == 1 else args.source_data
 
     precomputed_inputs = None
     precomputed_fields = [
@@ -290,6 +302,7 @@ def main():
         df_dict["true_label"] = labels_out
     pd.DataFrame(df_dict).to_csv(output_dir / "predictions.csv", index=False)
     print("Prediction is completed.")
+
 
 if __name__ == "__main__":
     main()

@@ -13,6 +13,8 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
 )
+
+
 # ============= SET SEEDS FIRST =============
 def set_all_seeds(seed=42):
     random.seed(seed)
@@ -23,8 +25,9 @@ def set_all_seeds(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.use_deterministic_algorithms(True, warn_only=True)
-    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
 
 set_all_seeds(42)
 # ============= END SEED SETTING =============
@@ -36,13 +39,15 @@ torch.hub.set_dir(cache_dir)
 
 from milasol.models.predict_new import prediction, init_model
 
+
 # --------- helpers ----------
 def to_np(x):
     if isinstance(x, torch.Tensor):
         x = x.detach().cpu().numpy()
     return np.asarray(x, dtype=float)
 
-def print_metrics(all_probs,all_preds,all_labels):
+
+def print_metrics(all_probs, all_preds, all_labels):
     accuracy = accuracy_score(all_labels, all_preds)
     precision = precision_score(
         all_labels, all_preds, average="binary", zero_division=0
@@ -95,13 +100,17 @@ fit_model.eval()
 
 # Load data
 data_path = "test_src.txt"
-scr_data = pd.read_csv(data_path, header=None, names=["sequence"], dtype=str, keep_default_na=False)
+scr_data = pd.read_csv(
+    data_path, header=None, names=["sequence"], dtype=str, keep_default_na=False
+)
 seqs = scr_data["sequence"].astype(str).str.strip()
 seqs = seqs[seqs.str.len() > 0].tolist()
 print(f"Total sequences: {len(seqs)}\n")
 tgt_file = "test_tgt.txt"
-tgt_data = pd.read_csv(tgt_file, header=None, names=["labels"], dtype=str, keep_default_na=False)
-labels= tgt_data["labels"].astype(int).tolist()
+tgt_data = pd.read_csv(
+    tgt_file, header=None, names=["labels"], dtype=str, keep_default_na=False
+)
+labels = tgt_data["labels"].astype(int).tolist()
 
 
 print("\n" + "=" * 50)
@@ -112,7 +121,7 @@ chunk_size = 32
 all_probs, all_preds = [], []
 
 for i in range(0, len(seqs), chunk_size):
-    chunk = seqs[i:i + chunk_size]
+    chunk = seqs[i : i + chunk_size]
     probs_chunk, preds_chunk, _ = prediction(
         fit_model,
         chunk,
@@ -123,8 +132,6 @@ for i in range(0, len(seqs), chunk_size):
     )
     all_probs.extend(to_np(probs_chunk))
     all_preds.extend(to_np(preds_chunk))
- 
+
 print("\nMetrics:")
 print_metrics(all_probs, all_preds, labels)
-
-

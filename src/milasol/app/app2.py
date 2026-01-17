@@ -8,7 +8,8 @@ os.environ.setdefault("HF_HOME", cache_dir)
 torch.hub.set_dir(cache_dir)
 
 from milasol.models.predict_new import prediction, init_model
-#from raygun.pretrained import raygun_4_4mil_800M
+
+# from raygun.pretrained import raygun_4_4mil_800M
 from esm.pretrained import esm2_t33_650M_UR50D
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -63,7 +64,9 @@ def seqs_to_fasta_handle(
     return handle
 
 
-def _latent_distance(initial_latent: torch.Tensor, proposal_latent: torch.Tensor) -> float:
+def _latent_distance(
+    initial_latent: torch.Tensor, proposal_latent: torch.Tensor
+) -> float:
     """
     Compute L2 distance between two latent embeddings, padding the shorter sequence length.
     """
@@ -89,7 +92,6 @@ def _latent_distance(initial_latent: torch.Tensor, proposal_latent: torch.Tensor
     return float(torch.norm(diff.flatten(), p=2).item())
 
 
-
 def generate_with_raygun(
     seq_list,
     raymodel,
@@ -112,13 +114,15 @@ def generate_with_raygun(
     raymodel.to(device)
     esm_model.eval().to(device)
 
-    #print(f"[Generate with Raygun] length of seq_list is : {len(seq_list)}")
+    # print(f"[Generate with Raygun] length of seq_list is : {len(seq_list)}")
     # --- build loader WITHOUT recreating ESM each call ---
     fasta_handle = seqs_to_fasta_handle(seq_list, prefix="b0_seq", start_index=1)
-    preddata = RaygunData(fasta_handle, alphabet, esm_model, device=device,maxlength=2000)
+    preddata = RaygunData(
+        fasta_handle, alphabet, esm_model, device=device, maxlength=2000
+    )
     fasta_handle.close()
-    
-    #print(f"[Generate with Raygun] Total sequences for generation: {len(preddata)}")
+
+    # print(f"[Generate with Raygun] Total sequences for generation: {len(preddata)}")
     predloader = DataLoader(
         preddata,
         shuffle=shuffle,
@@ -159,8 +163,8 @@ def generate_with_raygun(
                 noise = None
                 if proposal_std and proposal_std > 0:
                     noise = float(proposal_std)
-                
-                #print(f"[Generate with Raygun] Running generation on batch size: {emb.size(0)}")
+
+                # print(f"[Generate with Raygun] Running generation on batch size: {emb.size(0)}")
 
                 out = raymodel(
                     emb,
@@ -169,7 +173,7 @@ def generate_with_raygun(
                     return_logits_and_seqs=True,
                 )
 
-                #print(f"[Generate with Raygun] Length of out is {len(out)}")
+                # print(f"[Generate with Raygun] Length of out is {len(out)}")
                 # normalize generated sequences per sample
                 gen_key = "generated-sequences"
                 gen = out[gen_key]
@@ -178,9 +182,9 @@ def generate_with_raygun(
 
                 # capture latent embeddings with validation
                 flemb = out["fixed_length_embedding"]
-                
-                #print(f"[Generate with Raygun] Captured fixed_length_embedding with shape {flemb.shape} for batch size {batch_size}")
-                
+
+                # print(f"[Generate with Raygun] Captured fixed_length_embedding with shape {flemb.shape} for batch size {batch_size}")
+
                 if not torch.is_tensor(flemb):
                     raise RuntimeError(
                         "Raygun output missing `fixed_length_embedding` tensor."
@@ -198,11 +202,12 @@ def generate_with_raygun(
 
                 gen_count = len(gen) if isinstance(gen, (list, tuple)) else 1
                 flemb_count = flemb.shape[0]
-               
 
                 actual_count = min(batch_size, gen_count, flemb_count)
                 if actual_count < batch_size:
-                    dropped_names = names_batch[actual_count:batch_size] if names_batch else []
+                    dropped_names = (
+                        names_batch[actual_count:batch_size] if names_batch else []
+                    )
                     print(
                         f"[Raygun] Warning: generator returned fewer outputs than inputs "
                         f"(in={batch_size}, gen={gen_count}, emb_out={flemb_count}); "
@@ -262,7 +267,6 @@ def protein_design_batch(
     n_restarts: int = 100,  # number of times to restart the annealing loop
     latent_distance_cap: float = 15,  # sigma x root(dim) * 4 = 0.1 x sqrt(1280) * 4
 ):
-  
 
     # ---- local helper: normalize prediction() outputs to 1D float list ----
     def _to_1d_float_list(x) -> List[float]:
@@ -350,7 +354,7 @@ def protein_design_batch(
         "index",
         "current_fitness",
         "current_sequence",
-        "current_distance"
+        "current_distance",
     ]
     if step_log_csv:
         os.makedirs(os.path.dirname(step_log_csv) or ".", exist_ok=True)
@@ -374,7 +378,7 @@ def protein_design_batch(
 
     # ---- main loop (with optional restarts) ----
     for restart_idx in range(max(1, n_restarts)):
-        
+
         print(f"[SA-BATCH] restarting annealing pass {restart_idx + 1}/{n_restarts}")
         curr_seqs = list(initial_sequences)
         curr_fit = initial_fit.copy()
@@ -389,7 +393,9 @@ def protein_design_batch(
 
         for step in range(n_steps):
             T = float(temps[step])
-            print(f"[SA-BATCH] proposal_std {proposal_std} at temp {T:.6f} (step {step + 1}/{n_steps})")
+            print(
+                f"[SA-BATCH] proposal_std {proposal_std} at temp {T:.6f} (step {step + 1}/{n_steps})"
+            )
             prev_curr_seqs = curr_seqs.copy()
             # Propose one new sequence per current sequence
             prop_seqs, prop_latents = generate_with_raygun(
@@ -407,12 +413,14 @@ def protein_design_batch(
 
             # Exit if skipped proposals
             if len(prop_latents) != B:
-                raise RuntimeError("Latent encoding count mismatch for proposal sequences.")
-            
+                raise RuntimeError(
+                    "Latent encoding count mismatch for proposal sequences."
+                )
+
             # Filter proposals by latent distance
             dists = []
             num_kept = 0
-            
+
             filtered_props: List[str] = []
             filtered_latents: List[np.ndarray] = []
             for idx, (seq, lat) in enumerate(zip(prop_seqs, prop_latents)):
@@ -432,8 +440,7 @@ def protein_design_batch(
 
             prop_seqs = filtered_props
             prop_latents = filtered_latents
-            
-            
+
             # Score proposals
             prop_probs, _, _ = prediction(
                 fit_model,
@@ -448,31 +455,40 @@ def protein_design_batch(
             # Metropolis accept/reject per index
             delta = prop_fit - curr_fit
             safe_T = max(T, 1e-12)
-            accept_prob = np.exp(np.clip(delta / safe_T, a_min=-clip_exp, a_max=clip_exp))
+            accept_prob = np.exp(
+                np.clip(delta / safe_T, a_min=-clip_exp, a_max=clip_exp)
+            )
             accept_mask = (delta >= 0.0) | (np.random.rand(B) < accept_prob)
             # Add more detailed diagnostics
             print(f"Step {step}:")
             print(f"  Proposals different: {diffs}/{B} ({100*diffs/B:.1f}%)")
-            print(f"  Delta: min={delta.min():.4f}, max={delta.max():.4f}, mean={delta.mean():.4f}, std={delta.std():.4f}")
-            print(f"  Accept rate: {accept_mask.sum()}/{B} ({100*accept_mask.mean():.1f}%)")
-            print(f"  Curr fitness: min={curr_fit.min():.4f}, max={curr_fit.max():.4f}, mean={curr_fit.mean():.4f}")
-            print(f"  Best fitness: min={best_fit.min():.4f}, max={best_fit.max():.4f}, mean={best_fit.mean():.4f}")
+            print(
+                f"  Delta: min={delta.min():.4f}, max={delta.max():.4f}, mean={delta.mean():.4f}, std={delta.std():.4f}"
+            )
+            print(
+                f"  Accept rate: {accept_mask.sum()}/{B} ({100*accept_mask.mean():.1f}%)"
+            )
+            print(
+                f"  Curr fitness: min={curr_fit.min():.4f}, max={curr_fit.max():.4f}, mean={curr_fit.mean():.4f}"
+            )
+            print(
+                f"  Best fitness: min={best_fit.min():.4f}, max={best_fit.max():.4f}, mean={best_fit.mean():.4f}"
+            )
             print(f"  Temperature: {T:.6f}")
-
 
             # Update current & best
             for i in range(B):
                 if not accept_mask[i]:
                     continue
-                
-               # Accept proposal
+
+                # Accept proposal
                 curr_fit[i] = prop_fit[i]
                 curr_latents[i] = prop_latents[i]
                 # Only treat it as a "sequence move" if the sequence changed
                 if curr_seqs[i] != prop_seqs[i]:
                     curr_seqs[i] = prop_seqs[i]
                     # Update best if improved
-                    if curr_fit[i] > best_fit[i] :
+                    if curr_fit[i] > best_fit[i]:
                         best_fit[i] = curr_fit[i]
                         best_seq[i] = curr_seqs[i]
                         if writer is not None:
@@ -487,9 +503,9 @@ def protein_design_batch(
                                 }
                             )
                             f_csv.flush()
-            
+
             changed = sum(1 for a, b in zip(prev_curr_seqs, curr_seqs) if a != b)
-            print(f"  After update: {changed}/{B} current sequences actually changed")   
+            print(f"  After update: {changed}/{B} current sequences actually changed")
 
         restart_end_time = time.perf_counter()
         restart_end_wall = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -520,7 +536,6 @@ def run_batch(
     filenum: Optional[int] = None,
     n_restarts: int = 100,
 ) -> int:
- 
 
     # 0) Prepare out dir
     out_root = Path(out_dir)
@@ -545,23 +560,24 @@ def run_batch(
     fit_model.eval()
 
     # Raygun generator + ESM (reused across all batches)
-    #raymodel = raygun_4_4mil_800M().to(device).eval()
-    localurl="/cluster/tufts/cowenlab/wlou01/modelcache/rohitsinghlab_raygun_main"
-    raymodel, esmdecoder, _ = torch.hub.load(localurl, "pretrained_uniref50_4_4mil_800M", source = "local")
+    # raymodel = raygun_4_4mil_800M().to(device).eval()
+    localurl = "/cluster/tufts/cowenlab/wlou01/modelcache/rohitsinghlab_raygun_main"
+    raymodel, esmdecoder, _ = torch.hub.load(
+        localurl, "pretrained_uniref50_4_4mil_800M", source="local"
+    )
     raymodel = raymodel.model.to(device).eval()
     esm_model, alphabet = esm2_t33_650M_UR50D()
     esm_model = esm_model.to(device).eval()
 
     total = 0
     t_total_start = time.perf_counter()
-    
-        
+
     for bidx, batch in enumerate(tqdm(seq_batches, desc="Running batches")):
         # Clean this batch
         batch_seqs = [s.strip() for s in batch if isinstance(s, str) and s.strip()]
         if not batch_seqs:
             continue
-        
+
         step_log_csv = f"file{filenum:02d}_b{bidx:05d}_sa_steps.csv"
         step_log_csv = out_root / step_log_csv
         # ---- timing: start

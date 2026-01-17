@@ -352,11 +352,9 @@ def train_one_epoch(
     center_weight: float = 0.1,
 ):
     model.train()
-    total_loss = (
-        total_cls_loss
-    ) = (
-        total_con_loss
-    ) = total_recon_loss = total_entropy = total_proto = total_center = 0.0
+    total_loss = total_cls_loss = total_con_loss = total_recon_loss = total_entropy = (
+        total_proto
+    ) = total_center = 0.0
     all_preds, all_labels, all_probs = [], [], []
 
     proto_neg_mean = None  # init lazily once we see z
@@ -403,7 +401,7 @@ def train_one_epoch(
         # Center Loss
         center_loss = center_loss_fn(z_normal, labels)
 
-        # ✅ Get class-0 prototype 
+        # ✅ Get class-0 prototype
 
         # Negative class prototype pull
         neg_mask = (labels == 0).view(-1)

@@ -9,11 +9,12 @@ import numpy as np
 import pandas as pd
 import torch
 
-import esm  
+import esm
 from transformers import T5EncoderModel, T5Tokenizer
 
 # ----------------- Public API response container -----------------
 # have options for both in-memory tensors and on-disk paths
+
 
 @dataclass(frozen=True)
 class EmbeddingArtifacts:
@@ -36,6 +37,7 @@ import os
 from pathlib import Path
 from typing import List, Sequence, Union
 
+
 def _load_sequences(
     source: Union[str, Sequence[str]], seq_col: str = "sequence"
 ) -> List[str]:
@@ -49,13 +51,10 @@ def _load_sequences(
 
         # Safely decide if it's a path
         try:
-            looks_like_path = (
-                len(s) < 240
-                and (
-                    p.suffix.lower()
-                    in {".csv", ".tsv", ".txt", ".fa", ".fasta", ".faa", ".fas"}
-                    or p.exists()
-                )
+            looks_like_path = len(s) < 240 and (
+                p.suffix.lower()
+                in {".csv", ".tsv", ".txt", ".fa", ".fasta", ".faa", ".fas"}
+                or p.exists()
             )
         except OSError:
             looks_like_path = False
@@ -136,7 +135,6 @@ def _load_sequences(
     return seqs
 
 
-
 # ----------------- ESM 2.0.0 -----------------
 
 
@@ -152,7 +150,7 @@ def _esm_perres_and_pooled(
     pooled_chunks: List[np.ndarray] = []
 
     data = [(f"seq_{i}", s) for i, s in enumerate(seqs)]
-    
+
     # ---- length guard (ESM2 limit) ----
     MAX_LEN = 1022
     too_long = [(name, len(seq)) for name, seq in data if len(seq) > MAX_LEN]
@@ -170,7 +168,7 @@ def _esm_perres_and_pooled(
             f"First few: {preview}"
         )
     # -------------------------------
-    
+
     for i in range(0, len(data), batch_size):
         batch = data[i : i + batch_size]
         _, _, toks = batch_converter(batch)
@@ -203,8 +201,12 @@ def _prott5_pooled(
     seqs: List[str], device: str, cache_dir: Optional[str], batch_size: int = 4
 ) -> np.ndarray:
     model_id = "Rostlab/prot_t5_xl_uniref50"
-    tok = T5Tokenizer.from_pretrained(model_id, do_lower_case=False, cache_dir=cache_dir)
-    mdl = T5EncoderModel.from_pretrained(model_id, cache_dir=cache_dir).to(device).eval()
+    tok = T5Tokenizer.from_pretrained(
+        model_id, do_lower_case=False, cache_dir=cache_dir
+    )
+    mdl = (
+        T5EncoderModel.from_pretrained(model_id, cache_dir=cache_dir).to(device).eval()
+    )
 
     texts = _prep_prott5(seqs)
     chunks: List[np.ndarray] = []
@@ -229,9 +231,7 @@ def _prott5_pooled(
 
 
 @torch.no_grad()
-def _raygun_from_esm(
-    per_res_list: List[torch.Tensor], device: str
-) -> np.ndarray:
+def _raygun_from_esm(per_res_list: List[torch.Tensor], device: str) -> np.ndarray:
     localurl = "/cluster/tufts/cowenlab/wlou01/modelcache/rohitsinghlab_raygun_main"
     raymodel, esmdecoder, _ = torch.hub.load(
         localurl, "pretrained_uniref50_4_4mil_800M", source="local"
@@ -259,7 +259,7 @@ def _resolve_cache_dir(cache_dir: Optional[str]) -> str:
     if cache_dir:
         p = Path(cache_dir)
         p.mkdir(parents=True, exist_ok=True)
-        torch.hub.set_dir(str(p)) 
+        torch.hub.set_dir(str(p))
         return str(p)
 
     # 2) environment variables
@@ -274,8 +274,7 @@ def _resolve_cache_dir(cache_dir: Optional[str]) -> str:
                 torch.hub.set_dir(str(p))
                 return str(p)
 
-            
-            torch.hub.set_dir(str(p / "torch"))  
+            torch.hub.set_dir(str(p / "torch"))
             return str(p)
 
     # 3) fallback
@@ -312,7 +311,7 @@ def transfer_to_three_embedding_csvs(
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     seqs = _load_sequences(source, seq_col=seq_col)
-    #print(f"[Info] Generating embeddings for {len(seqs)} sequences on device: {device}")
+    # print(f"[Info] Generating embeddings for {len(seqs)} sequences on device: {device}")
 
     if write_to_disk and out_dir is None:
         raise ValueError("out_dir must be provided when write_to_disk=True")
@@ -366,10 +365,7 @@ def transfer_to_three_embedding_csvs(
 
     assert len(seqs) == len(df_esm) == len(df_raygun) == len(df_prott5)
     assert (
-        esm_emb.size(0)
-        == raygun_emb.size(0)
-        == prott5_emb.size(0)
-        == len(per_res_list)
+        esm_emb.size(0) == raygun_emb.size(0) == prott5_emb.size(0) == len(per_res_list)
     )
 
     return EmbeddingArtifacts(
@@ -383,4 +379,3 @@ def transfer_to_three_embedding_csvs(
         raygun_path=None,
         prott5_path=None,
     )
-
